@@ -11,7 +11,7 @@ Contacting email: xf2@rice.edu
 # generate tree, along with copy number variation happening to the branches. write the final fasta for each leaf to a file.
 # this file is a wrapper from Beta_Splitting_Model.py as of 09052018
 
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 from anytree import Node, RenderTree
 import numpy as np
 import graphviz as gv
@@ -20,7 +20,11 @@ import re
 from anytree.dotexport import RenderTreeGraph
 from CN import CN
 from Gen_Ref_Fa import gen_ref, init_ref, write_ref, read_ref
-
+import dendropy
+from dendropy.simulate import treesim
+import ete3
+from ete3 import Tree
+import timeit
 nuc_array = ['A', 'B', 'C', 'D']
 # for test purpose
 random = 1
@@ -96,15 +100,15 @@ class MyNode(Node):
         return self.id
 
 def get_range(chr_len, min_cn_size, exp_theta, CN_LIST_ID):
-    # get pos1 and pos2 for the copy number. 
-    # skip the first and last "skip" nucleotides (CN does not happen in that range) 
+    # get pos1 and pos2 for the copy number.
+    # skip the first and last "skip" nucleotides (CN does not happen in that range)
     if random == 0:
         # no randomness
         return cn_list1[CN_LIST_ID], cn_list2[CN_LIST_ID]
-        
+
     else:
         skip = 0
-        #skip = 5000000 
+        #skip = 5000000
         # not try any more if cannot find a good one, just use the end
         trials = 0
         max_n = 10
@@ -119,7 +123,7 @@ def get_range(chr_len, min_cn_size, exp_theta, CN_LIST_ID):
         else:
             p2 = p1 + cn_size
         return int(p1), int(p2)
-    
+
 def binary_search(x, array, l, r):
     # find the index i where x < array[i] and x > array[i-1]
     t = l + int((r - l)/2)
@@ -153,7 +157,7 @@ def get_new_nuc(nuc):
             return new_nuc
 
 
-    
+
 # given an array of len, find which chr and pos the p on the whole genome corresponds to
 def wg2chr(chrlen, p):
     num = 0
@@ -215,10 +219,10 @@ def add_CN(chrlen, cn_num, del_rate, min_cn_size, exp_theta, amp_p, corres, CN_L
     for i in range(CN_Tot):
         # allele
         if random == 0:
-            CN_Ale = allele_list[i] 
+            CN_Ale = allele_list[i]
         else:
             CN_Ale = np.random.binomial(1, 0.5)
-        # deletion versus amplification 
+        # deletion versus amplification
         if random == 0:
             CN_Del = if_del_list[i]
         else:
@@ -316,10 +320,10 @@ def break_overlap(hash_):
                 if key in list(ret_hash.keys()):
                     ret_hash[key] = ret_hash[key] + cn
                 else:
-                    ret_hash[key] = cn 
-                            
+                    ret_hash[key] = cn
+
     return ret_hash
-        
+
 # given the correspondence, summarize for each segment, the number of copies (for each allele), and a summary of deletion and amplification (merge neighbors if they are of the same copy number)
 def get_cn_from_corres(corres, ref_len):
     cn_detail = []
@@ -327,7 +331,7 @@ def get_cn_from_corres(corres, ref_len):
         # which allele
         cn_detail_ = []
         for j in range(len(corres[i])):
-            # which chromosome 
+            # which chromosome
             hash_ = {}
             #cn_detail_ = []
             for k in range(len(corres[i][j])):
@@ -359,7 +363,7 @@ def get_cn_summary_(cn_detail):
     for i in tmp_range:
         cn_detail__ = []
         for j in range(len(cn_detail)):
-            cn_detail__.append(0) 
+            cn_detail__.append(0)
         cn_detail_.append(cn_detail__)
 
     for i in range(len(cn_detail)):
@@ -373,7 +377,7 @@ def get_cn_summary_(cn_detail):
         bp = {}
         # get the breakpoint hash
         # allele
-        for j in range(len(cn_detail_[i])): 
+        for j in range(len(cn_detail_[i])):
             # chr
             for key in cn_detail_[i][j]:
                 s, e = key.split(".")
@@ -390,14 +394,14 @@ def get_cn_summary_(cn_detail):
         # get the copy number for each pair, this will include those that are not CN, will filtered out later on
         ret_summary_ = {}
         pair_bps = list(pair_bp.keys())
-        pair_bps.sort(key=natural_keys) 
+        pair_bps.sort(key=natural_keys)
         for pair in pair_bps:
             pair_s, pair_e = pair.split(".")
             pair_s = int(pair_s)
             pair_e = int(pair_e)
             cn = 0
             tag = 0
-            # see which big ones it belong to, if it belongs to nothing, there's no CNV 
+            # see which big ones it belong to, if it belongs to nothing, there's no CNV
             for j in range(len(cn_detail_[i])):
                 # each allele get counted once and once only; if not counted, it means that allele is normal, need to add 1 there
                 for key in cn_detail_[i][j]:
@@ -405,7 +409,7 @@ def get_cn_summary_(cn_detail):
                     s = int(s)
                     e = int(e)
                     if pair_s >= s and pair_e <= e:
-                        # add the cn of this interval 
+                        # add the cn of this interval
                         cn = cn + cn_detail_[i][j][key]
                         tag = tag + 1
             # have to enter each allele if the allele has a cnv, otherwise the cn there is 1
@@ -418,7 +422,7 @@ def get_cn_summary_(cn_detail):
                 ret_summary_[pair] = cn
         ret_summary[i] = ret_summary_
     return ret_summary
-            
+
 # given the detailed cn (abnormal ones) on each allele and each chromosome, summarize by merging alleles, giving the correct answer that the CNV detectors are trying to find
 def get_cn_summary(corres):
     cn_summary = {}
@@ -429,7 +433,7 @@ def get_cn_summary(corres):
     for i in tmp_range:
         corres__ = []
         for j in range(len(corres)):
-            corres__.append(0) 
+            corres__.append(0)
         corres_.append(corres__)
 
     for i in range(len(corres)):
@@ -448,7 +452,7 @@ def get_cn_summary(corres):
                 s, e = key.split(".")
                 # make it string with allele
                 # record both allele and start and end info in key (s: 0; e: 1; in the second digit after dot)
-                key_ = str(s) + "." + str(allele) + str(1) 
+                key_ = str(s) + "." + str(allele) + str(1)
                 union_hash[key_] = ".".join([str(tmp_hash[key]), str(allele), "s"])
                 key_ = str(e) + "." + str(allele) + str(0)
                 union_hash[key_] = ".".join([str(tmp_hash[key]), str(allele), "e"])
@@ -471,7 +475,7 @@ def get_cn_summary(corres):
             if SorE == "s":
                 # start
                 if prev_SorE == "s":
-                    # start for previous, two different alleles, conclude the previous one 
+                    # start for previous, two different alleles, conclude the previous one
                     if prev_bp != bp:
                         key_ = ".".join([str(prev_bp), str(bp)])
                         cn_ = prev_cn + 1
@@ -526,10 +530,10 @@ def get_cn_summary(corres):
             prev_prev_cn = prev_cn
             prev_cn = cn
             prev_prev_SorE = prev_SorE
-            prev_SorE = SorE 
+            prev_SorE = SorE
         cn_summary[chr] = cn_summary_
     return cn_summary
-           
+
 # human sort to get rid of the problem of having 0 at the end (string to float will miss this info)
 def natural_keys(text):
     #return [ atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
@@ -609,11 +613,11 @@ def get_cn_detail(hash_, ref_len_):
         # the previous previous one hasn't been done yet
         if rem_s != -1:
             seg = ".".join([str(rem_s), str(rem_e)])
-            ret_dict[seg] = prev_cn 
+            ret_dict[seg] = prev_cn
     elif rem_e != -1:
         seg = ".".join([str(rem_s), str(rem_e)])
         ret_dict[seg] = prev_cn
-    return ret_dict 
+    return ret_dict
 
 # given two positions on the genome, and whether it is a deletion, get the corresponding positions on the reference
 def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
@@ -634,7 +638,7 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
     #            sys.exit(0)
     #        # p1 not included, always [a, b), including cnv ranges
     #        ret_corres.append(corres_coord(0, p1, 0, p1))
-    #        ret_corres.append(corres_coord(p2, r2, p1, g2 - cnv_sz)) 
+    #        ret_corres.append(corres_coord(p2, r2, p1, g2 - cnv_sz))
     #    else:
     #        # break into two, in which a part of ref belongs to both segments
     #        ret_corres.append(corres_coord(0, p2, 0, p2))
@@ -664,9 +668,9 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
                     if p1 != g1 or p2 != g2:
                         if p1 == g1:
                             # notice on the genome side, it is the coordinate after the deletion, as we are looking at the correspondence of the genome after the deletion
-                            ret_corres.append(corres_coord(p1_ref, r2, g1, g1 + (r2 - p1_ref))) 
+                            ret_corres.append(corres_coord(p1_ref, r2, g1, g1 + (r2 - p1_ref)))
                         elif p2 == g2:
-                            ret_corres.append(corres_coord(r1, r2 - cnv_sz, g1, g2 - cnv_sz)) 
+                            ret_corres.append(corres_coord(r1, r2 - cnv_sz, g1, g2 - cnv_sz))
                         else:
                             # the middle part taken, broken into two
                             ret_corres.append(corres_coord(r1, p1_ref, g1, p1))
@@ -677,8 +681,8 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
                 else:
                     # now there are two correspondences involved, thus the deletion is broken into two or more (depending on how many correspondences it involves) on the reference
                     # for this correspondence, there is only one correspondence left
-                    # r1 ----| p1_ref 
-                    # g1 --- | p1 
+                    # r1 ----| p1_ref
+                    # g1 --- | p1
                     # see anything left for the header
                     if p1 > g1:
                         ret_corres.append(corres_coord(r1, p1_ref, g1, p1))
@@ -686,16 +690,16 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
                     # get the rest of the correspondences
                     i = i + 1
                     r1, r2 = new_corres[i].ref
-                    g1, g2 = new_corres[i].gen 
+                    g1, g2 = new_corres[i].gen
                     while p2 > g2:
                         i = i + 1
                         r1, r2 = new_corres[i].ref
-                        g1, g2 = new_corres[i].gen 
+                        g1, g2 = new_corres[i].gen
                     # all of these are deleted until the rest of the correspondence
                     # r1 ---- (deleted) ---- p2_ref -- r2
                     # g1 ---- (deleted) ---- p2 ------ g2
                     if p2 != g2:
-                        p2_ref = r1 + p2 - g1 
+                        p2_ref = r1 + p2 - g1
                         ret_corres.append(corres_coord(p2_ref, r2, p1, p1 + g2 - p2))
                     i_start = i + 1
                     break
@@ -720,10 +724,10 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
                         if p1 == g1:
                             # notice on the genome side, it is the coordinate after the deletion, as we are looking at the correspondence of the genome after the deletion
                             for j in range(amp_num):
-                                ret_corres.append(corres_coord(r1, r1 + cnv_sz, g1 + j * cnv_sz, g1 + (j + 1) * cnv_sz)) 
-                            ret_corres.append(corres_coord(r1 + cnv_sz, r2, g1 + amp_num * cnv_sz, g1 + amp_num * cnv_sz + (r2 - p1_ref))) 
+                                ret_corres.append(corres_coord(r1, r1 + cnv_sz, g1 + j * cnv_sz, g1 + (j + 1) * cnv_sz))
+                            ret_corres.append(corres_coord(r1 + cnv_sz, r2, g1 + amp_num * cnv_sz, g1 + amp_num * cnv_sz + (r2 - p1_ref)))
                         elif p2 == g2:
-                            ret_corres.append(corres_coord(r1, r2 - cnv_sz, g1, g2 - cnv_sz)) 
+                            ret_corres.append(corres_coord(r1, r2 - cnv_sz, g1, g2 - cnv_sz))
                             for j in range(amp_num):
                                 ret_corres.append(corres_coord(r2 - cnv_sz, r2, g2 - cnv_sz + j * cnv_sz, g2 - cnv_sz + (j + 1) * cnv_sz))
                         else:
@@ -738,8 +742,8 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
                 else:
                     # now there are two correspondences involved, thus the deletion is broken into two or more (depending on how many correspondences it involves) on the reference
                     # for this correspondence, there is only one correspondence left
-                    # r1 ----| p1_ref 
-                    # g1 --- | p1 
+                    # r1 ----| p1_ref
+                    # g1 --- | p1
                     # see anything left for the header
                     current_i = i
                     if p1 > g1:
@@ -758,7 +762,7 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
                         i = i + 1
                         r1, r2 = new_corres[i].ref
                         g1, g2 = new_corres[i].gen
-                        
+
                         while p2 > g2:
                             # deal with the last
                             ret_corres.append(corres_coord(r1, r2, end, end + r2 - r1))
@@ -789,8 +793,8 @@ def get_correspond_pos(p1, p2, if_del, new_corres, amp_num):
             ret_corres.append(corres_coord(r1, r2, g1 + gen_off, g2 + gen_off))
 
     return ret_corres
-        
- 
+
+
 def add_whole_amp(chrlen, whole_amp_rate, whole_amp_num, corres, amp_num_geo_par):
     new_chrlen = [row[:] for row in chrlen]
     new_corres = [row[:] for row in corres]
@@ -810,12 +814,12 @@ def add_whole_amp(chrlen, whole_amp_rate, whole_amp_num, corres, amp_num_geo_par
                     amp_num = whole_amp_num * np.random.geometric(amp_num_geo_par)
                 new_CN = CN(i, 0, j, 0, new_chrlen[i][j], amp_num, new_corres)
                 new_chrlen[i][j] = new_chrlen[i][j] * (amp_num + 1)
-                new_corres = get_new_corres(new_CN, new_corres) 
+                new_corres = get_new_corres(new_CN, new_corres)
                 wholeamp.append(new_CN)
     return wholeamp, new_chrlen, new_corres
 
 def get_new_corres(CN, corres):
-    # generate the new correspondence between reference and each allele in the genome 
+    # generate the new correspondence between reference and each allele in the genome
     ale = CN.CN_Ale
     if_del = CN.CN_Del
     chr = CN.CN_chromosome
@@ -831,8 +835,8 @@ def get_new_corres(CN, corres):
     new_corres[ale][chr] = ret_corres
     # return this
     return new_corres
-    
-    
+
+
 
 def is_in(a, mytuple):
     if float(a)>float(mytuple[0]) and float(a)<=float(mytuple[1]):
@@ -844,10 +848,165 @@ def print_chr_len(chrlen_array):
     print(chrlen_array)
     return ""
 
+
+
+def BD_tree(ntips):
+    try:
+        t = treesim.birth_death_tree(birth_rate=1.0, death_rate=0.5, gsa_ntax=2*ntips, num_extant_tips=ntips)
+    except TypeError:
+        print("dendropy tree simulation failed, try one more time")
+        return BD_tree(ntips)
+    #t.print_plot()
+    t.write(path="./tree.nw",schema="newick")
+    s = t.as_string(schema="newick")
+    #print(s)
+    s = Tree('(' + s.replace('[&R] ', '').replace(';', '') + ');')
+    return s
 # root_mult is the multiplier of the mean CNV on root branch than those on the leaves
 # whole_amp: if there's whole chromosome amplification
-# whole_amp_rate: rate of an allele on a chromosome chosen to be amplified. 
+# whole_amp_rate: rate of an allele on a chromosome chosen to be amplified.
 # whole_amp_num: the mean of the number of copies added
+
+def gen_with_tree(n, Beta, Alpha, Delta, cn_num, del_rate, min_cn_size, exp_theta, amp_p, template_ref, outfile, fa_prefix, snv_rate, root_mult, whole_amp, whole_amp_rate, whole_amp_num, amp_num_geo_par):
+    # generate a tree with dendropy using birth death model
+    #           root
+    #            | CN0
+    #          node 0
+    #        / CN1   \ CN2
+    #    node 1    node 2
+    # with gen_tree()
+    print("generating a birth death tree")
+    t_start = timeit.default_timer()
+    tree = BD_tree(n)
+    t_stop = timeit.default_timer()
+    print("Done with generating tree, time elapsed: ", t_start - t_stop)
+
+    print("Start generating ref array")
+    t_start = t_stop
+    #from original gen_tree
+    ref_array = []
+    chr_name_array = []
+    chr_sz = []
+    f = open(outfile, "w")
+    ref_array, chr_name_array, chr_sz = init_ref(template_ref)
+    chr_sz1 = []
+    # data structure for corresponding coordinates for calculating the actual CNV on reference
+    # copy so that the two arrays of allele length are independent
+    corres2 = []
+    for i in chr_sz:
+        chr_sz1.append(i)
+        corres = corres_coord(0, i, 0, i)
+        corres2.append([corres])
+
+    t_stop = timeit.default_timer()
+    print("Done with generating ref array, time elapsed: ", t_start - t_stop)
+
+    print("start adding CNs")
+    t_start = t_stop
+    #start of loop
+    for node in tree.traverse:
+        id_count = 0
+        #set root node
+        cn_num = node.dist
+        if node.is_root():
+            print("at root")
+            #ref_array, chr_name_array, chr_sz = init_ref(template_ref)
+            # each corres contains two alleles, each alleles contains all chromosomes, each chromosome contains a list of corres_coord data struture, which has the four tuple of ref1, ref2, gen1, gen2
+            node.chrlen=[chr_sz1, chr_sz1]
+            node.corres = [corres2, corres2]
+            #print chr_sz
+            node.id = -1
+            node.names = "root"
+            root = node
+        #node 0
+        elif node.up.is_root():
+            print("at first internal node")
+            node.id = id_count
+            node.names = "node"+id_count
+            id_count = id_count + 1
+            CN_LIST_ID = 0
+            # whole chromosome amplification
+            if whole_amp == 1:
+                node.cn, node.chrlen, node.corres = add_whole_amp(root.chrlen, whole_amp_rate, whole_amp_num, root.corres, amp_num_geo_par)
+            # assume most of the CN happens on the root branch
+                cn_array2, node.chrlen, node.corres = add_CN(node.chrlen, (cn_num * root_mult), del_rate, min_cn_size, exp_theta, amp_p, node.corres, CN_LIST_ID)
+                for x in cn_array2:
+                    node.cn.append(x)
+            else:
+                node.cn, node.chrlen, node.corres = add_CN(root.chrlen, (cn_num * root_mult), del_rate, min_cn_size, exp_theta, amp_p, root.corres, CN_LIST_ID)
+                node.cn_detail, node.cn_summary = get_cn_from_corres(node.corres, chr_sz)
+            #print "Node 0:"
+            #print node.chrlen
+            #node.parent=root
+            node0 = node
+        #node 1 and node 2
+        elif node.up == node0:
+            print("at children of first internal node")
+            node.cn, node.chrlen, node.corres = add_CN(node0.chrlen, cn_num, del_rate, min_cn_size, exp_theta, amp_p, node0.corres, CN_LIST_ID)
+            node.cn_detail, node.cn_summary = get_cn_from_corres(node.corres, chr_sz)
+            node.id = id_count
+            node.names = "node"+id_count
+            id_count = id_count + 1
+
+        #all other node
+
+        else:
+            print("somewhere else")
+            this_chrlen = node.up.chrlen[:]
+            node.cn, node.chrlen, node.corres = add_CN(this_chrlen, cn_num, del_rate, min_cn_size, exp_theta, amp_p, tree.corres, CN_LIST_ID)
+            node.cn_detail, node.cn_summary = get_cn_from_corres(node.corres, chr_sz)
+            node.id = id_count
+            if node.is_leaf():
+                node.names = "leaf"+id_count
+            else:
+                node.names = "node"+id_count
+            id_count = id_count + 1
+    #end of loop here
+    t_stop = timeit.default_timer()
+    print("Done with generating CNs, time elapsed: ", t_start - t_stop)
+
+    leaf_chrlen = []
+    # record which are leaves
+    leaf_index = []
+    f.write("Before the tree, chromosomomal length is " + str(root.chrlen) + "\n")
+    for i in tree.traverse():
+        f.write("node %d: \n" % i.id)
+        f.write("    parent = %d\n" % i.up.names)
+        f.write("    name = " + str(i.names) + "\n")
+
+    for i in tree.traverse():
+        if i.is_leaf():
+            leaf_index.append(i.id)
+            leaf_chrlen.append(i.chrlen)
+        cn = i.cn
+        f.write("node %d from %d: total CN # = %d\n" % (i.id, i.up.id, len(cn)))
+        for j in range(len(cn)):
+            f.write("    copy number %d: allele: %d, is del: %d, chromosome: %d, position: [%d, %d], amplification #: %d\n" % (j, cn[j].CN_Ale, cn[j].CN_Del, cn[j].CN_chromosome, cn[j].CN_p1, cn[j].CN_p2, cn[j].CN_amp_num))
+        # write the copy number summary (on the reference coordinate
+        cn_summary = i.cn_summary
+        for chr in sorted(cn_summary):
+            f.write("At chromosome %s\n" % (chr))
+            cn_summary_ = cn_summary[chr]
+            for each_summary in sorted(cn_summary_):
+                f.write("   %s, %d\n" % (each_summary, cn_summary_[each_summary]))
+        #snvs = Tree[i].snvs
+        #for j in range(len(snvs)):
+            #f.write("    snv %d: chr: %d, pos: %d, ref_nuc: %s, new_nuc: %s", snvs[j].chr, snvs[j].pos, snvs[j].nuc, snvs[j].new_nuc)
+
+        f.write("    " + str(i.chrlen) + "\n")
+            #print_chr_len(Tree[i].chrlen)
+    #RenderTreeGraph(Tree[0]).to_picture(str(Output))
+
+
+    # generate reference for each leaf
+    # memory issue, already written.
+    #for i in range(len(Tree)):
+    #    fa_f_prefix = fa_prefix + str(i) + "_"
+    #    write_ref(Tree[i].ref, chr_name_array, fa_f_prefix)
+
+    f.close()
+    return leaf_chrlen, leaf_index, chr_name_array, Tree
+
 def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_theta, amp_p, template_ref, outfile, fa_prefix, snv_rate, root_mult, whole_amp, whole_amp_rate, whole_amp_num, amp_num_geo_par):
     #n = 4
     #Beta = 0.5
@@ -858,7 +1017,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     #del_rate = 0.5
     #min_cn_size = 200000
     ## exponential distribution
-    ## smaller exp_theta means larger chance to get larger CNV 
+    ## smaller exp_theta means larger chance to get larger CNV
     #exp_theta = 0.000001
     ## geometric distribution
     ## like simulated annealing, lower amp_p means larger chance to get large CN amp
@@ -867,7 +1026,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     #template_ref = "/home1/03626/xfan/reference/hg19.fa"
     #outfile = "/work/03626/xfan/lonestar/std.out"
     #fa_prefix = "/work/03626/xfan/lonestar/ref"
-    
+
     ref_array = []
     chr_name_array = []
     chr_sz = []
@@ -884,13 +1043,13 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     #template_ref = raw_input("template fasta file:")
     #outfile = raw_input("Output file name:")
     #fa_f_prefix = raw_input("fasta prefix:")
-    
+
     f = open(outfile, "w")
+
     
-    
-    
-    
-    
+
+
+
     #n= int(n)
     #Alpha = float(Alpha)
     #Beta = float(Beta)
@@ -908,25 +1067,25 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     Vi = np.random.uniform(0.0,1.0,n-1)
     Di = np.random.uniform(0.0,1.0,n-1)
     Bi = np.random.beta(float(Alpha+1),float(Beta+1),n-1)
-    
+
     #Normalizing the branch lengths
     summation = 0
     for t in ti:
         summation += t
-    
+
     for T in range(0,len(ti)):
         ti[T]=float(ti[T])/float(summation)
-    
+
     #print ti
-    
-    
+
+
     #Contructing the phylogeny
     # by default chromosome size
     # from hg19, Navin's 2012 paper
     #chr_sz = [249250621, 243199373, 198022430, 191154276, 180915260, 171115067, 159138663, 146364022, 141213431, 135534747, 135006516, 133851895, 115169878, 107349540, 102531392, 90354753, 81195210, 78077248, 59128983, 63025520, 48129895, 51304566, 155270560, 59373566]
-    
+
     # root is the node before node 0 in tree
-    
+
     root=MyNode("0: [0,1]")
     root.tuple=[0,1]
     ref_array, chr_name_array, chr_sz = init_ref(template_ref)
@@ -943,7 +1102,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     root.corres = [corres2, corres2]
     #print chr_sz
     root.id = -1
-    
+
     Tree = []
     Tree.append(MyNode("0: [0,1]"))
     Tree[0].tuple=[0,1]
@@ -963,7 +1122,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     #print Tree[0].chrlen
     Tree[0].parent=root
     Tree[0].edge_length = np.random.exponential(1,1)
-    
+
     # update the reference on the node
     #Tree[0].ref = gen_ref(ref_array, Tree[0].cn)
     #tmp_ref = gen_ref(ref_array, Tree[0].cn)
@@ -971,7 +1130,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     #fa_f_prefix = fa_prefix + str(0) + "_"
     #write_ref(tmp_ref, chr_name_array, fa_f_prefix)
     #Tree[0].ref, Tree[0].snvs = add_SNV(Tree[0].chrlen, Tree[0].ref, snv_rate, Tree[0].edge_length)
-    
+
     Tree.append(MyNode(str(1)+":[0,"+"{0:.2f}".format(Bi[0])+"]"+","+"{0:.4f}".format(ti[0])))
     Tree.append(MyNode(str(2)+":["+"{0:.2f}".format(Bi[0])+",1]"+","+"{0:.4f}".format(ti[1])))
     # add copy number
@@ -983,11 +1142,11 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     Tree[2].cn_detail, Tree[2].cn_summary = get_cn_from_corres(Tree[2].corres, chr_sz)
     #print "Node 2:"
     #print Tree[2].chrlen
-    
+
     # update the reference
     #Tree[1].ref = gen_ref(Tree[0].ref, Tree[1].cn)
     #Tree[2].ref = gen_ref(Tree[0].ref, Tree[2].cn)
-    # memory issue. at one time at most 2.5 references, each is 6gb (2 alleles). 
+    # memory issue. at one time at most 2.5 references, each is 6gb (2 alleles).
     #parent_ref = read_ref(fa_prefix + str(0) + "_")
     #tmp_ref = gen_ref(parent_ref, Tree[1].cn)
     #fa_f_prefix = fa_prefix + str(1) + "_"
@@ -995,7 +1154,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     #tmp_ref = gen_ref(parent_ref, Tree[2].cn)
     #fa_f_prefix = fa_prefix + str(2) + "_"
     #write_ref(tmp_ref, chr_name_array, fa_f_prefix)
-    
+
     Tree[1].parent=Tree[0]
     Tree[2].parent=Tree[0]
     # set parent ID
@@ -1009,10 +1168,10 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
     Tree[2].edge_length = ti[1]
     #Tree[1].ref, Tree[1].snvs = add_SNV(Tree[1].chrlen, Tree[1].ref, snv_rate, Tree[1].edge_length)
     #Tree[2].ref, Tree[2].snvs = add_SNV(Tree[2].chrlen, Tree[2].ref, snv_rate, Tree[2].edge_length)
-    
+
     node_number=2
     j=1
-    
+
     while j<n-1:
         if Vi[j] < Delta :
             for tr in Tree:
@@ -1035,7 +1194,7 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
                     middle = float(Bi[j])*float((float(b)-float(a)))+float(a)
                     Tree.append(MyNode(str(node_number-1)+":["+"{0:.4f}".format(a)+","+"{0:.4f}".format(middle)+"]"+","+"{0:.4f}".format(ti[node_number-1]), parent=tree))
                     Tree.append(MyNode(str(node_number)+":["+"{0:.4f}".format(middle)+","+"{0:.4f}".format(b)+"]"+","+"{0:.4f}".format(ti[node_number]), parent=tree))
-    
+
                     #The new intervals are assigned here
                     Tree[node_number-1].tuple=[a,middle]
                     Tree[node_number].tuple=[middle,b]
@@ -1057,12 +1216,12 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
                     this_chrlen = tree.chrlen[:]
                     #print this_chrlen
                     #print node_number, tree.getID()
-    
+
                     # add reference
                     # memory issue
-                    #Tree[node_number-1].ref = gen_ref(tree.ref, Tree[node_number-1].cn) 
-                    #Tree[node_number].ref = gen_ref(tree.ref, Tree[node_number].cn) 
-                    # now do not calculate the ref anyway, as it takes lots of hard disk space. Just get the tree with cn, then at the leaf, trace back all the cns up to root, and apply it to each leaf. This will solve both the memory and hard disk issue. 
+                    #Tree[node_number-1].ref = gen_ref(tree.ref, Tree[node_number-1].cn)
+                    #Tree[node_number].ref = gen_ref(tree.ref, Tree[node_number].cn)
+                    # now do not calculate the ref anyway, as it takes lots of hard disk space. Just get the tree with cn, then at the leaf, trace back all the cns up to root, and apply it to each leaf. This will solve both the memory and hard disk issue.
                     #tmp_ref = gen_ref(parent_ref, Tree[node_number-1].cn)
                     #fa_f_prefix = fa_prefix + str(node_number-1) + "_"
                     #write_ref(tmp_ref, chr_name_array, fa_f_prefix)
@@ -1076,25 +1235,25 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
                     # add snvs
                     #Tree[node_number-1].ref, Tree[node_number-1].snvs = add_SNV(Tree[node_number-1].chrlen, Tree[node_number-1].ref, snv_rate, Tree[node_number-1].edge_length)
                     #Tree[node_number].ref, Tree[node_number].snvs = add_SNV(Tree[node_number].chrlen, Tree[node_number].ref, snv_rate, Tree[node_number].edge_length)
-    
+
                     # set id
                     Tree[node_number-1].id = node_number - 1
                     Tree[node_number].id = node_number
-    
+
                     break
-    
+
         j+=1
-    
+
     #Changing names of the leaves
     #leaf_name=0
     #for nd in Tree:
     #    if nd.is_leaf:
     #        nd.name = leaf_name
     #        leaf_name+=1
-    
+
     #for pre, fill, node in RenderTree(Tree[0]):
     #    print("%s%s" % (pre, node.name))
-    
+
     # record the chromosome length for each leaf on the tree
     leaf_chrlen = []
     # record which are leaves
@@ -1122,17 +1281,17 @@ def gen_tree(n, Beta, Alpha, Delta, Output, cn_num, del_rate, min_cn_size, exp_t
         #snvs = Tree[i].snvs
         #for j in range(len(snvs)):
             #f.write("    snv %d: chr: %d, pos: %d, ref_nuc: %s, new_nuc: %s", snvs[j].chr, snvs[j].pos, snvs[j].nuc, snvs[j].new_nuc)
-            
+
         f.write("    " + str(Tree[i].chrlen) + "\n")
             #print_chr_len(Tree[i].chrlen)
     #RenderTreeGraph(Tree[0]).to_picture(str(Output))
-    
-    
+
+
     # generate reference for each leaf
     # memory issue, already written.
     #for i in range(len(Tree)):
     #    fa_f_prefix = fa_prefix + str(i) + "_"
     #    write_ref(Tree[i].ref, chr_name_array, fa_f_prefix)
-    
+
     f.close()
     return leaf_chrlen, leaf_index, chr_name_array, Tree

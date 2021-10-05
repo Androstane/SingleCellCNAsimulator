@@ -4,22 +4,42 @@
 
 from CN import CN
 import os
-
+def extract_parentID(tree, ID):
+    for node in tree.traverse():
+        if node.id == ID:
+            return node.up.id
+def extract_treenode(tree, ID):
+    for node in tree.traverse():
+        if node.id == ID:
+            return node
 def make_fa(ID, tree, ref, chr_name_array, fa_prefix):
     fa_f_prefix = fa_prefix + str(ID) + "_"
     # record all the nodes that this route visited (from leaf to root)
     trace = [ID]
     visit = ID
     while visit != 0:
+        #print("visit", visit)
+        #print(tree[visit])
+        #print(tree[visit].parentID)
         visit = tree[visit].parentID
+        #visit = extract_parentID(tree, visit)
+        #print("visit new", visit)
         trace.append(visit)
     # now reverse the trace so that the CNV can be applied from root to leaf
     CN = []
     for i in range(len(trace)):
         j = len(trace) - i - 1
         # gather all CNs together
+        #print("Trace j:", trace[j])
         for cn in tree[trace[j]].cn:
             CN.append(cn)
+        #temp = extract_treenode(tree, trace[j])
+        #if temp is None:
+            #print("no such node")
+        #else:
+            #print("node:", temp.id)
+            #for cn in temp.cn:
+                #CN.append(cn)
     new_ref = gen_ref(ref, CN)
     write_ref(new_ref, chr_name_array, fa_f_prefix)
 
@@ -95,7 +115,7 @@ def gen_ref(ref, CNs):
 def read_ref(ref):
     ref_a = []
     for i in [1, 2]:
-        file_ = ref + str(i) + ".fa" 
+        file_ = ref + str(i) + ".fa"
         if os.path.isfile(file_):
             file = open(file_, "r")
             ref_ = []
@@ -117,7 +137,7 @@ def read_ref(ref):
         else:
             print(file_ + " does not exist and cannot be opened.")
     return ref_a
-   
+
 def write_ref(ref, chr_name, fasta):
     # write the reference to a fasta file
     line_len = 60
