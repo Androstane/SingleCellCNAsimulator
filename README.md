@@ -2,7 +2,7 @@ This repository contains simulator used in the work "NestedBD: Bayesian Inferenc
 
 ## Usage 
 
-For the purpose of the study, we set %X=8, %W=0, %m=20M and %e=100M. The value of %c under different simulation setting is described in the method section. 
+For the purpose of the study, we set X=8, W=0, m=20M and e=100M. The value of c under different simulation setting is described in the method section. 
 
 ### Step 1
 
@@ -31,7 +31,7 @@ python main.par.py -r $dir -n $n -X $X -t $ref -W $W -C $C -m $m -e $e -amp $amp
  
 - $SP (required): Tree option. When setting SP = 0, a prompt will require user enter the path to a file contain a tree in newick format to be used for simulation; SP = 1 simulate a tree with birth death process before adding CNAs along the branches; SP = 2 simulate a beta splitting tree and CNA along branches simulataneously. 
 
-- %c: event multipler, the number of events added to each branch is sampled from a poisson distribution with mean eqaul to the product of %c and branch length.
+- $c: event multipler, the number of events added to each branch is sampled from a poisson distribution with mean eqaul to the product of %c and branch length.
 
 ### Step 2
 Same as the original simulator.
