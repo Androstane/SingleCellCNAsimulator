@@ -34,4 +34,4 @@ python main.par.py -r $dir -n $n -X $X -t $ref -W $W -C $C -m $m -e $e -amp $amp
 - $c: event multipler, the number of events added to each branch is sampled from a poisson distribution with mean eqaul to the product of %c and branch length.
 
 ### Step 2
-Same as the original simulator. The commands used in step 2 is summarized in gen_bam/simulate.sh and gen_bam/make_bam_from_fq.sh.
+Same as the original simulator. The commands used in step 2 is summarized in *gen_bam/simulate.sh* and *gen_bam/make_bam_from_fq.sh*.
